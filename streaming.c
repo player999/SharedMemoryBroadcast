@@ -5,6 +5,11 @@
 //videotestsrc ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port=5000
 GMainLoop *loop;
 
+#define IMWIDTH 800
+#define IMHEIGHT 600
+#define PORT 5000
+#define HOST "192.168.100.15"
+
 static void
 cb_need_data (GstElement *appsrc,
 	      guint       unused_size,
@@ -16,7 +21,7 @@ cb_need_data (GstElement *appsrc,
 	guint size;
 	GstFlowReturn ret;
 
-	size = 385 * 288 * 2;
+	size = IMWIDTH * IMHEIGHT * 1;
 
 	buffer = gst_buffer_new_and_alloc (size);
 
@@ -42,7 +47,7 @@ cb_need_data (GstElement *appsrc,
 int main(int argc, char *argv[])
 {
 	GstElement *pipeline;
-  	GstElement *src, *codec, *wrapper, *netsink;
+  	GstElement *src, *colorspace, *codec, *wrapper, *netsink;
   	gboolean status;
   	GstCaps *capsRaw;
   	gchar *params;
@@ -55,26 +60,30 @@ int main(int argc, char *argv[])
 	pipeline = gst_pipeline_new("truba");
 	//src = gst_element_factory_make("videotestsrc", "src");
 	src = gst_element_factory_make("appsrc", "src");
+	colorspace = gst_element_factory_make("ffmpegcolorspace", "colorspaceconverter");
 	codec = gst_element_factory_make("x264enc", "codec");
 	wrapper = gst_element_factory_make("rtph264pay", "wrapper");
 	netsink = gst_element_factory_make("udpsink", "netsink");
 
 	/* Set up pipeline */
-	capsRaw = gst_caps_new_simple(	"video/x-raw-yuv", "format", GST_TYPE_FOURCC,
-									GST_MAKE_FOURCC ('I', '4', '2', '0'),
-									"width", G_TYPE_INT, 384,
-									"height", G_TYPE_INT, 288,
+	capsRaw = gst_caps_new_simple(	"video/x-raw-gray",
+									"bpp", G_TYPE_INT, 8,
+									"depth", G_TYPE_INT, 8,
+									"width", G_TYPE_INT, 800,
+									"height", G_TYPE_INT, 600,
 									"framerate", GST_TYPE_FRACTION, 25, 1,
 									NULL);
 	g_signal_connect(src, "need-data", G_CALLBACK(cb_need_data), NULL);
 	g_object_set(G_OBJECT(src), "caps", capsRaw, NULL);
 	g_object_set(G_OBJECT(src), "stream-type", 0, "format",
 		         GST_FORMAT_TIME, NULL);
-	g_object_set(G_OBJECT(netsink), "host", "192.168.100.15", NULL);
-	g_object_set(G_OBJECT(netsink), "port", 5000, NULL);
+	g_object_set(G_OBJECT(netsink), "host", HOST, NULL);
+	g_object_set(G_OBJECT(netsink), "port", PORT, NULL);
 
-	gst_bin_add_many(GST_BIN(pipeline), src, codec, wrapper, netsink, NULL);
-	status = gst_element_link_many(src, codec, wrapper, netsink, NULL);
+	gst_bin_add_many(GST_BIN(pipeline), src, colorspace, codec, wrapper,
+		             netsink, NULL);
+	status = gst_element_link_many(src, colorspace, codec, wrapper, netsink,
+		                           NULL);
 
 	if(!status) {
 		printf("Linking elements failed!\n");
@@ -84,6 +93,9 @@ int main(int argc, char *argv[])
 	}
 
 	params = NULL;
+
+
+
 	//Run
 
 	gst_element_set_state(pipeline, GST_STATE_PLAYING);
