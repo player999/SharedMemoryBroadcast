@@ -5,10 +5,18 @@
 //videotestsrc ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port=5000
 GMainLoop *loop;
 
+#define JETSON
+
 #define IMWIDTH 800
 #define IMHEIGHT 600
 #define PORT 5000
-#define HOST "192.168.100.15"
+#ifdef JETSON
+# define HOST "192.168.111.210"
+# define CODEC "nv_omx_h264enc"
+#else
+# define HOST "192.168.100.15"
+# define CODEC "x264enc"
+#endif
 
 static void
 cb_need_data (GstElement *appsrc,
@@ -61,18 +69,18 @@ int main(int argc, char *argv[])
 	//src = gst_element_factory_make("videotestsrc", "src");
 	src = gst_element_factory_make("appsrc", "src");
 	colorspace = gst_element_factory_make("ffmpegcolorspace", "colorspaceconverter");
-	codec = gst_element_factory_make("x264enc", "codec");
+	codec = gst_element_factory_make(CODEC, "codec");
 	wrapper = gst_element_factory_make("rtph264pay", "wrapper");
 	netsink = gst_element_factory_make("udpsink", "netsink");
 
 	/* Set up pipeline */
 	capsRaw = gst_caps_new_simple(	"video/x-raw-gray",
-									"bpp", G_TYPE_INT, 8,
-									"depth", G_TYPE_INT, 8,
-									"width", G_TYPE_INT, 800,
-									"height", G_TYPE_INT, 600,
-									"framerate", GST_TYPE_FRACTION, 25, 1,
-									NULL);
+					"bpp", G_TYPE_INT, 8,
+					"depth", G_TYPE_INT, 8,
+					"width", G_TYPE_INT, 800,
+					"height", G_TYPE_INT, 600,
+					"framerate", GST_TYPE_FRACTION, 25, 1,
+					NULL);
 	g_signal_connect(src, "need-data", G_CALLBACK(cb_need_data), NULL);
 	g_object_set(G_OBJECT(src), "caps", capsRaw, NULL);
 	g_object_set(G_OBJECT(src), "stream-type", 0, "format",
