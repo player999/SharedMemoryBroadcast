@@ -7,11 +7,11 @@ GMainLoop *loop;
 
 #define JETSON
 
-#define IMWIDTH 800
-#define IMHEIGHT 600
+#define IMWIDTH 1920
+#define IMHEIGHT 1080
 #define PORT 5000
 #ifdef JETSON
-# define HOST "192.168.111.210"
+# define HOST "192.168.100.15"
 # define CODEC "nv_omx_h264enc"
 #else
 # define HOST "192.168.100.15"
@@ -77,8 +77,8 @@ int main(int argc, char *argv[])
 	capsRaw = gst_caps_new_simple(	"video/x-raw-gray",
 					"bpp", G_TYPE_INT, 8,
 					"depth", G_TYPE_INT, 8,
-					"width", G_TYPE_INT, 800,
-					"height", G_TYPE_INT, 600,
+					"width", G_TYPE_INT, IMWIDTH,
+					"height", G_TYPE_INT, IMHEIGHT,
 					"framerate", GST_TYPE_FRACTION, 25, 1,
 					NULL);
 	g_signal_connect(src, "need-data", G_CALLBACK(cb_need_data), NULL);
