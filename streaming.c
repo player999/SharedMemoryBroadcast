@@ -1,11 +1,18 @@
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 #include <gst/gst.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-//videotestsrc ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port=5000
+//videotestsrc ! ffmpegcolorspace ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port=5000
 GMainLoop *loop;
 
 #define JETSON
+#undef JETSON
 
 #define IMWIDTH 1920
 #define IMHEIGHT 1080
@@ -18,10 +25,29 @@ GMainLoop *loop;
 # define CODEC "x264enc"
 #endif
 
+#define LOCKFILE "/var/run/lock/vitstreaming.lock"
+
+static char _T_framebuffer[IMWIDTH * IMHEIGHT] = {0xFF};
+
+static void _t_sigusr1(int sig) {
+	int md = shm_open("vit_image", O_RDONLY,  S_IRUSR | S_IWUSR | S_IRGRP |
+				S_IWGRP | S_IROTH | S_IWOTH);
+	if (md != 0) {
+		int rb;
+		rb = read(md, _T_framebuffer, IMWIDTH * IMHEIGHT);
+		if (IMWIDTH * IMHEIGHT != rb)
+		{
+			printf("Looks like frame is broken\n");
+			printf("%d bytes transfered\n", rb);
+		}
+		close(md);
+	}
+}
+
 static void
 cb_need_data (GstElement *appsrc,
-	      guint       unused_size,
-	      gpointer    user_data)
+			  guint       unused_size,
+			  gpointer    user_data)
 {
 	static gboolean white = FALSE;
 	static GstClockTime timestamp = 0;
@@ -31,12 +57,8 @@ cb_need_data (GstElement *appsrc,
 
 	size = IMWIDTH * IMHEIGHT * 1;
 
-	buffer = gst_buffer_new_and_alloc (size);
-
-	/* this makes the image black/white */
-	memset(GST_BUFFER_DATA(buffer), white ? 0xff : 0x0, size);
-
-	white = !white;
+	buffer = gst_buffer_new();
+	gst_buffer_set_data(buffer, _T_framebuffer, size);
 
 	GST_BUFFER_TIMESTAMP(buffer) = timestamp;
 	GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int (1, GST_SECOND, 25);
@@ -59,6 +81,7 @@ int main(int argc, char *argv[])
   	gboolean status;
   	GstCaps *capsRaw;
   	gchar *params;
+  	FILE *lf;
 
 	/* Initialize GStreamer */
 	gst_init (&argc, &argv);
@@ -102,10 +125,18 @@ int main(int argc, char *argv[])
 
 	params = NULL;
 
+	/* Create lock file */
+	lf = fopen(LOCKFILE, "w");
+	fprintf(lf, "%d", getpid());
+	fclose(lf);
 
+	/* Setup signal handler */
+	if (SIG_ERR == signal(SIGUSR1, _t_sigusr1))
+	{
+		printf("Failed to spoof signal handler\n");
+	}
 
 	//Run
-
 	gst_element_set_state(pipeline, GST_STATE_PLAYING);
 	g_main_loop_run (loop);
 	gst_element_set_state(pipeline, GST_STATE_NULL);
