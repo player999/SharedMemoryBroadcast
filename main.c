@@ -430,29 +430,37 @@ _t_main_loop(
 			cvPutText(&img, fpsstr, cvPoint(width - 185 * scal, 30), &fnt, color_black);
 
 			/* Draw plates */
-			for(i = 0; i < PMAX; i++) {
+			{
 				CvRect r;
-				struct CvMat m;
-				if (NULL == implates[i] && withpreview) {
-					continue;
+				r.x = 0;
+				r.y = 0;
+				r.height = 0;
+				r.width = scal * 175;
+				for(i = 0; i < PMAX; i++) {
+					
+					struct CvMat m;
+					if (NULL == implates[i] && withpreview) {
+						continue;
+					}
+
+					if (plateStr[i] == 0) continue;
+
+					cvRectangle(&img,
+						cvPoint(0, r.y + r.height + 10), 
+						cvPoint(175 * scal, r.y + r.height + 50 * scal), 
+						color_white, CV_FILLED, 8, 0);
+					cvPutText(&img, plateStr[i], 
+							  cvPoint(5, r.y + r.height + 45 * scal), 
+							  &fnt, color_black);
+
+					if(withpreview) {
+						r.y += r.height + 60 * scal;
+						r.height = r.width * implates[i]->rows / implates[i]->cols;
+						cvGetSubRect(&img, &m, r);
+						cvResize(implates[i], &m, CV_INTER_LINEAR);
+					}
+					
 				}
-
-				if (plateStr[i] == 0) continue;
-
-				if(withpreview) {
-					r.x = 0;
-					r.y = i * 100 * scal + 50 * scal;
-					r.width = scal * 175;
-					r.height = scal * 40;
-					cvGetSubRect(&img, &m, r);
-					cvResize(implates[i], &m, CV_INTER_LINEAR);
-				}
-				cvRectangle(&img,
-					cvPoint(0, i * 100 * scal), 
-					cvPoint(175 * scal, 40 * scal + i * 100 * scal), 
-					color_white, CV_FILLED, 8, 0);
-				cvPutText(&img, plateStr[i], cvPoint(5, i * 100 * scal + 35 * scal), &fnt, color_black);
-
 			}
 						
 			
